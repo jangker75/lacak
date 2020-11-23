@@ -14,3 +14,6 @@
 Route::get('/', function () {
     return view('welcome');
 });
+// Route::post('/inputimage', 'AdminInputdataController@getAnnotateImage');
+
+Route::post('/annotate', 'AdminInputdataController@annotateImage');

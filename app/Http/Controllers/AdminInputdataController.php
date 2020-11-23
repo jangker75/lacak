@@ -1,11 +1,20 @@
 <?php namespace App\Http\Controllers;
 
 	use Session;
-	use Request;
+	// use Request;
 	use DB;
 	use CRUDBooster;
+	// use GuzzleHttp\Client;
+	use thiagoalessio\TesseractOCR\TesseractOCR;
+	use Illuminate\Http\Request;
+	use GuzzleHttp;
+use Illuminate\Http\Request as HttpRequest;
+use GoogleCloudVision\GoogleCloudVision;
+use GoogleCloudVision\Request\AnnotateImageRequest;
+use Google\Cloud\Storage\StorageObject;
+use Google\Cloud\Vision\V1\ImageAnnotatorClient;
 
-	class AdminInputdataController extends \crocodicstudio\crudbooster\controllers\CBController {
+class AdminInputdataController extends \crocodicstudio\crudbooster\controllers\CBController {
 
 	    public function cbInit() {
 
@@ -14,12 +23,12 @@
 			$this->limit = "20";
 			$this->orderby = "id,desc";
 			$this->global_privilege = false;
-			$this->button_table_action = true;
-			$this->button_bulk_action = true;
+			$this->button_table_action = false;
+			$this->button_bulk_action = false;
 			$this->button_action_style = "button_icon";
 			$this->button_add = false;
 			$this->button_edit = false;
-			$this->button_delete = false;
+			$this->button_delete = true;
 			$this->button_detail = false;
 			$this->button_show = false;
 			$this->button_filter = true;
@@ -155,7 +164,15 @@
 	        |
 	        */
 	        $this->script_js = NULL;
-
+			$this->script_js = "
+			Webcam.attach( '#my_camera' );
+		
+		function take_snapshot() {
+			Webcam.snap( function(data_uri) {
+				document.getElementById('my_result').innerHTML = '<img src='+data_uri+'/>';
+			} );
+		}
+			";
 
             /*
 	        | ---------------------------------------------------------------------- 
@@ -166,11 +183,17 @@
 	        |
 	        */
 	        $this->pre_index_html = null;
-			$this->pre_index_html = "
-			<div class='panel panel-default'>
-    <div class='panel-heading'>Input Form</div>
-    <div class='panel-body'>
-      <form method='get' action='".action('AdminInputdataController@getRegisNIK')."' enctype='multipart/form-data'>
+			$this->pre_index_html = 
+			 
+			"
+			<table width='100%'>
+			<tbody>
+			<tr>
+			<td>
+		<div class='panel panel-default'>
+			<div class='panel-heading'>Input Form</div>
+			<div class='panel-body'>
+			<form method='get' action='".action('AdminInputdataController@getRegisNIK')."' enctype='multipart/form-data'>
         
         <div class='form-group'>
             
@@ -191,8 +214,41 @@
                   </div>
                 </div>
             </form>
-  </div>
-  ";
+		</div>
+			</td>
+			<td width='2%''></td>
+			<td>
+        <div class='panel panel-default'>
+            <div class='panel-heading'>Input Form</div>
+			<div class='panel-body'>
+			<div id='results'>Your captured image will appear here...</div>
+			<div id='my_camera' style='width:320px; height:240px;'></div>
+			<form>
+				<input type=button value='Take Large Snapshot' onClick='take_snapshot()'>
+			</form>
+			<form method='post' action='".action('AdminInputdataController@annotateImage')."' enctype='multipart/form-data'>
+			". csrf_field() ."
+			<div class='form-group row'>
+				<div class='col-md-6'>
+					<input type='file' id='image' title='File Attachment' required   class='form-control' name='image'/>
+					<p class='help-block'></p>
+					<div class='text-danger'></div>
+				</div>
+			</div>
+			<div class='box-footer'>
+			<div class='form-group'>
+					  <label class='control-label col-sm-2'></label>
+					  <div class='col-sm-10'>
+					   <input type='submit'  value='Submit' class='btn btn-success'>
+					  </div>
+			</div>
+		  </div>
+		</form>
+          </div>
+		</td>
+		</tr></tbody>
+		</table>
+		";
 	        /*
 	        | ---------------------------------------------------------------------- 
 	        | Include HTML Code after index table 
@@ -214,7 +270,7 @@
 	        |
 	        */
 	        $this->load_js = array();
-	        
+	        // $this->load_js = public_path("js/webcam.min.js");
 	        
 	        
 	        /*
@@ -226,7 +282,13 @@
 	        |
 	        */
 	        $this->style_css = NULL;
-	        
+			$this->style_css = "
+			body { font-family: Helvetica, sans-serif; }
+			h2, h3 { margin-top:0; }
+			form { margin-top: 15px; }
+			form > input { margin-right: 15px; }
+			#results { float:right; margin:20px; padding:20px; border:1px solid; background:#ccc; }
+			";
 	        
 	        
 	        /*
@@ -353,27 +415,7 @@
 	    }
 
 
-		// public function getIndex() {
-		// 	//First, Add an auth
-			 
-		// 	  if (!CRUDBooster::isRead() && $this -> global_privilege == FALSE || $this -> button_edit == FALSE) {
-		// 		CRUDBooster::redirect(CRUDBooster::adminPath(), trans("crudbooster.denied_access"));
-		// 	}
-		// 	 //Create your own query 
-		// 	//  $data = [];
-		// 	 $data['page_title'] = 'Input Data';
-		// 	//  $data['result'] = DB::table('users')
-		// 	//  ->select('users.*', 'kecamatan.nama as nama_kecamatan', 'kota.nama as nama_kota', 'provinsi.nama as nama_provinsi')
-		// 	//  ->join('kecamatan', 'kecamatan.id', '=', 'users.kecamatan_id')
-		// 	//  ->join('provinsi', 'provinsi.id', '=', 'users.provinsi_id')
-		// 	//  ->join('kota', 'kota.id', '=', 'users.kota_id')
-		// 	//  ->orderby('id','desc')->paginate(10);
-				  
-		// 	 //Create a view. Please use `cbView` method instead of view method from laravel.
-
-		// 	 $data = $this->repository();
-		// 	 $this->cbView('input_data',$data);
-		// }
+	
 		
 		public function repository($paginate = true, callable $callback = null){
 			
@@ -399,24 +441,76 @@
 			return $data;
 		}
 
-		public function getRegisNIK(){
+		public function getRegisNIK(HttpRequest $request){
 			// dd('sukses add daata');
 			
-			$client = new \GuzzleHttp\Client();
-    		// $response = $request->getBody();
+			$client = new GuzzleHttp\Client([
+				  // Base URI is used with relative requests
+				  'base_uri' => 'http://localhost/lacak/public/api/',
+				  // You can set any number of default request options.
+				  'timeout'  => 2.0,
+			]);
     		
-			$response = $client->get('http://localhost/lacak-corona/public/api/regis?nama={{$nama}}&nik=3172044905930005&alamat=jalanan');
+			$res = $client->request('GET', 'regis', [
+				'query' => ['nama' => $request->nama,'nik' => $request->nik,'alamat' => $request->alamat ]
+			]);
+			$body = $res->getBody();
 			
-			echo $response->getBody();
-			// {"type":"User"...'
-			// var_export($response->json());
-			// Outputs the JSON decoded data
-
-
-			CRUDBooster::redirect($_SERVER['HTTP_REFERER'],$response->getBody(),"success");
+			$data = json_decode($body, true);
+			$msg = $data['api_message'];
+			if ($data['api_status'] == 0){
+				CRUDBooster::redirect($_SERVER['HTTP_REFERER'],$msg,"warning");	
+			}
+			CRUDBooster::redirect($_SERVER['HTTP_REFERER'],$msg,"success");
+			
 		}
+		public function annotateImage(Request $request){
+			// dd($request);
+			// $file = Request::file('userfile');
+			// $file = $request->userfile;
+			// dd($file->getClientOriginalName());
+			// $file->move(public_path('image'),$file->getClientOriginalName());
+			// CRUDBooster::redirect($_SERVER['HTTP_REFERER'],"sukses","success");
+			if($image = $request->file('image')){
+				//convert image to base64
+				// $image = base64_encode(file_get_contents($request->file('image')));
+				//prepare request
+				
+	    		$image->move(public_path('ocr'),$image->getClientOriginalName());
+				$path = public_path('ocr/'.$image->getClientOriginalName());
+				$resultNumber = (new TesseractOCR($path))
+				->digits()
+				->run();
+				$result = (new TesseractOCR($path))
+				// ->tessdataDir('/path')
+				// ->lang('ind')
+				->run();
+				// $data = $data->json_encode([
+				// 	'data'=>$result,
+				// ]);
+				echo "NIK = ".substr($resultNumber,0, 16);
+				echo "<br/>NAMA = ".$result.'<br/>';
+				foreach((new TesseractOCR())->availableLanguages() as $lang) echo $lang.'<br/>';
 
+				// $request = new AnnotateImageRequest();
+				// $request->setImage($image);
+				// $request->setFeature("TEXT_DETECTION");
+				// $gcvRequest = new GoogleCloudVision([$request],  env('GOOGLE_CLOUD_KEY'));
+				// //send annotation request
+				// $response = $gcvRequest->annotate();
+				// dd($response);
+				// echo json_encode(["description" => $response->responses[0]->textAnnotations[0]->description]);
+		
+			}}
+
+		// public function getIndex(){
+		// 	return view('input_data');
+		// }
+		// public function postIndex(){
+		// 	$file = Request::file('userfile');
+	    // 	$file->move(public_path('image'),$file->getClientOriginalName());
+		// }
 	    //By the way, you can still create your own method in here... :) 
 
 
-	}
+}

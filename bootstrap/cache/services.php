@@ -29,6 +29,7 @@
     25 => 'App\\Providers\\EventServiceProvider',
     26 => 'App\\Providers\\RouteServiceProvider',
     27 => 'crocodicstudio\\crudbooster\\CRUDBoosterServiceProvider',
+    28 => 'Eusebiu\\LaravelSparkCamera\\CameraServiceProvider',
   ),
   'eager' => 
   array (
@@ -47,6 +48,7 @@
     12 => 'App\\Providers\\EventServiceProvider',
     13 => 'App\\Providers\\RouteServiceProvider',
     14 => 'crocodicstudio\\crudbooster\\CRUDBoosterServiceProvider',
+    15 => 'Eusebiu\\LaravelSparkCamera\\CameraServiceProvider',
   ),
   'deferred' => 
   array (
